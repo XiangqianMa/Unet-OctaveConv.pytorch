@@ -1,26 +1,28 @@
-from .decoder import FPNDecoder
+from .decoder import UnetDecoder
 from ..base import EncoderDecoder
 from ..encoders import get_encoder
 
 
-class FPN(EncoderDecoder):
-    """FPN_ is a fully convolution neural network for image semantic segmentation
+class OctaveUnet(EncoderDecoder):
+    """Unet_ is a fully convolution neural network for image semantic segmentation
+
     Args:
         encoder_name: name of classification model (without last dense layers) used as feature
-                extractor to build segmentation model.
+            extractor to build segmentation model.
         encoder_weights: one of ``None`` (random initialization), ``imagenet`` (pre-training on ImageNet).
-        decoder_pyramid_channels: a number of convolution filters in Feature Pyramid of FPN_.
-        decoder_segmentation_channels: a number of convolution filters in segmentation head of FPN_.
+        decoder_channels: list of numbers of ``Conv2D`` layer filters in decoder blocks
+        decoder_use_batchnorm: if ``True``, ``BatchNormalisation`` layer between ``Conv2D`` and ``Activation`` layers
+            is used.
         classes: a number of classes for output (output shape - ``(batch, classes, h, w)``).
-        dropout: spatial dropout rate in range (0, 1).
         activation: activation function used in ``.predict(x)`` method for inference.
             One of [``sigmoid``, ``softmax``, callable, None]
+        center: if ``True`` add ``Conv2dReLU`` block on encoder head (useful for VGG models)
 
     Returns:
-        ``torch.nn.Module``: **FPN**
+        ``torch.nn.Module``: **Unet**
 
-    .. _FPN:
-        http://presentations.cocodataset.org/COCO17-Stuff-FAIR.pdf
+    .. _Unet:
+        https://arxiv.org/pdf/1505.04597
 
     """
 
@@ -28,25 +30,25 @@ class FPN(EncoderDecoder):
             self,
             encoder_name='resnet34',
             encoder_weights='imagenet',
-            decoder_pyramid_channels=256,
-            decoder_segmentation_channels=128,
+            decoder_use_batchnorm=True,
+            decoder_channels=(256, 128, 64, 32, 16),
             classes=1,
-            dropout=0.2,
             activation='sigmoid',
+            center=False,  # usefull for VGG models
     ):
         encoder = get_encoder(
             encoder_name,
             encoder_weights=encoder_weights
         )
 
-        decoder = FPNDecoder(
+        decoder = UnetDecoder(
             encoder_channels=encoder.out_shapes,
-            pyramid_channels=decoder_pyramid_channels,
-            segmentation_channels=decoder_segmentation_channels,
+            decoder_channels=decoder_channels,
             final_channels=classes,
-            dropout=dropout,
+            use_batchnorm=decoder_use_batchnorm,
+            center=center,
         )
 
         super().__init__(encoder, decoder, activation)
 
-        self.name = 'fpn-{}'.format(encoder_name)
+        self.name = 'u-{}'.format(encoder_name)
